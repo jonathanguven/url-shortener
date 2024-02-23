@@ -16,8 +16,14 @@ def create_table():
 def insert_url(url, alias):
   conn = sqlite3.connect('shortener.db')
   c = conn.cursor()
-  c.execute("INSERT INTO urls (url, alias) VALUES (?, ?)", (url, alias))
-  conn.commit()
+  c.execute("SELECT COUNT(*) FROM urls WHERE alias=?", (alias,))
+  count = c.fetchone()[0]
+  if count > 0:
+    print('Alias already exists. Please enter different alias.')
+  else:
+    c.execute("INSERT INTO urls (url, alias) VALUES (?, ?)", (url, alias))
+    conn.commit()
+    print('URL for ' + alias + ' inserted successfully')
   conn.close()
 
 # Function for deleting a url
@@ -55,5 +61,28 @@ def alias_exists(alias):
   conn.close()
   return count > 0
 
-# Create the table if it doesn't exist
 create_table()
+
+# insert some urls
+insert_url('https://www.youtube.com', 'youtube')
+insert_url('https://www.monkeytype.com', 'monkey')
+
+# receive all urls
+for url in list_urls():
+  print(url)
+
+# retrieve individual url
+print(get_url('youtube'))
+print(get_url('monkey'))
+print(get_url('google'))
+
+# check if alias exists
+print(alias_exists('youtube')) # true
+print(alias_exists('google')) # false
+
+# delete url
+delete_url('youtube')
+for url in list_urls():
+  print(url)
+
+
