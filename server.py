@@ -1,14 +1,9 @@
-from fastapi import FastAPI, APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 import sqlite3
 import uvicorn
 
 app = FastAPI()
 router = APIRouter()
-
-class Alias(BaseModel):
-    url: str
-    alias: str
 
 def connect():
     print("Connecting to database")
@@ -42,16 +37,19 @@ def root():
     return "url-shortener"
 
 @app.post("/create_url")
-async def create_url(url_alias: Alias):
-    if alias_exists(url_alias.alias):
+async def create_url(request: Request):
+    data = await request.json()
+    url = data.get('url')
+    alias = data.get('alias')
+    if alias_exists(alias):
         raise HTTPException(status_code=400, detail="Alias already exists. Please enter different alias.")
     else:
         connection = connect()
         c = connection.cursor()
-        c.execute("INSERT INTO urls (url, alias) VALUES (?, ?)", (url_alias.url, url_alias.alias))
+        c.execute("INSERT INTO urls (url, alias) VALUES (?, ?)", (url, alias))
         connection.commit()
         connection.close()
-        return {"message": f"URL for {url_alias.alias} inserted successfully"}
+        return {"message": f"URL for {alias} inserted successfully"}
 
 @app.delete("/delete/{alias}")
 async def delete_url(alias: str):
