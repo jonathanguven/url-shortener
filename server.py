@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request
 import sqlite3
 import uvicorn
+from hash import generate_hash
 
 app = FastAPI()
 router = APIRouter()
@@ -32,15 +33,12 @@ async def start():
 router.add_event_handler("startup", start)
 app.include_router(router)
 
-@app.get("/")
-def root():
-    return "url-shortener"
-
 @app.post("/create_url")
 async def create_url(request: Request):
     data = await request.json()
     url = data.get('url')
     alias = data.get('alias')
+    alias = generate_hash(url, alias)
     if alias_exists(alias):
         raise HTTPException(status_code=400, detail="Alias already exists. Please enter different alias.")
     else:
@@ -81,6 +79,10 @@ async def find(alias: str):
     else:
         raise HTTPException(status_code=404, detail="Alias not found")
 
+
+@app.get("/")
+def root():
+    return "url-shortener"
 
 if __name__ == "__main__":
     uvicorn.run("server:app", port=5000, reload=True)
