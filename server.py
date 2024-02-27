@@ -37,7 +37,7 @@ app.include_router(router)
 async def create_url(request: Request):
     data = await request.json()
     url = data.get('url')
-    alias = data.get('alias')
+    alias = data.get('alias', None)
     alias = generate_hash(url, alias)
     if alias_exists(alias):
         raise HTTPException(status_code=400, detail="Alias already exists. Please enter different alias.")
