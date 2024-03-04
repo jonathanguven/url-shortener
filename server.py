@@ -1,10 +1,17 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
 import sqlite3
 import uvicorn
-from hash import generate_hash
+import logging
+import time
+
+from modules.hash import generate_hash
+from modules.args import get_args
+
 
 app = FastAPI()
 router = APIRouter()
+args = get_args()
 
 def connect():
     print("Connecting to database")
@@ -18,6 +25,14 @@ def alias_exists(alias: str):
     count = c.fetchone()[0]
     connection.close()
     return count > 0
+
+def get_url(alias: str):
+    connection = connect()
+    c = connection.cursor()
+    c.execute("SELECT url FROM urls WHERE alias=?", (alias,))
+    row = c.fetchone()
+    connection.close()
+    return row[0]
 
 async def start():
     connection = connect()
@@ -58,7 +73,7 @@ async def delete_url(alias: str):
     connection.close()
     return {"message": f"URL for {alias} deleted successfully"}
 
-@app.get("/list_all")
+@app.get("/list")
 async def list_urls():
     connection = connect()
     c = connection.cursor()
@@ -69,20 +84,28 @@ async def list_urls():
 
 @app.get("/find/{alias}")
 async def find(alias: str):
-    connection = connect()
-    c = connection.cursor()
-    c.execute("SELECT url FROM urls WHERE alias=?", (alias,))
-    row = c.fetchone()
-    connection.close()
-    if row:
-        return {"url": row[0]}
+    if alias_exists(alias):
+        url = get_url(alias)
+        return RedirectResponse(url)
     else:
         raise HTTPException(status_code=404, detail="Alias not found")
-
 
 @app.get("/")
 def root():
     return "url-shortener"
 
+@app.get("/logging-levels")
+def logging_levels():
+    logging.error("This is an error message")
+    logging.warning("This is a warning message")
+    logging.info("This is an info message")
+    logging.debug("This is a debug message")
+logging.Formatter.converter = time.gmtime
+logging.basicConfig(
+    format="%(asctime)s.%(msecs)03dZ %(levelname)s:%(name)s:%(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+    level= logging.ERROR - (args.verbose*10),
+)
+
 if __name__ == "__main__":
-    uvicorn.run("server:app", port=5000, reload=True)
+    uvicorn.run("server:app", host=args.host, port=args.port, reload=True)
