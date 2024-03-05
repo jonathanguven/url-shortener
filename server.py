@@ -1,38 +1,15 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
-import sqlite3
 import uvicorn
 import logging
 import time
 
-from modules.hash import generate_hash
 from modules.args import get_args
-
+from modules.helper import connect, alias_exists, get_url, create_alias, delete_alias, list_urls
 
 app = FastAPI()
 router = APIRouter()
 args = get_args()
-
-def connect():
-    print("Connecting to database")
-    connection = sqlite3.connect('shortener.db')
-    return connection
-
-def alias_exists(alias: str):
-    connection = connect()
-    c = connection.cursor()
-    c.execute("SELECT COUNT(*) FROM urls WHERE alias=?", (alias,))
-    count = c.fetchone()[0]
-    connection.close()
-    return count > 0
-
-def get_url(alias: str):
-    connection = connect()
-    c = connection.cursor()
-    c.execute("SELECT url FROM urls WHERE alias=?", (alias,))
-    row = c.fetchone()
-    connection.close()
-    return row[0]
 
 async def start():
     connection = connect()
@@ -53,34 +30,22 @@ async def create_url(request: Request):
     data = await request.json()
     url = data.get('url')
     alias = data.get('alias', None)
-    alias = generate_hash(url, alias)
-    if alias_exists(alias):
+    alias = create_alias(url, alias)
+    if alias is None:
         raise HTTPException(status_code=400, detail="Alias already exists. Please enter different alias.")
     else:
-        connection = connect()
-        c = connection.cursor()
-        c.execute("INSERT INTO urls (url, alias) VALUES (?, ?)", (url, alias))
-        connection.commit()
-        connection.close()
         return {"message": f"URL for {alias} inserted successfully"}
 
 @app.delete("/delete/{alias}")
 async def delete_url(alias: str):
-    connection = connect()
-    c = connection.cursor()
-    c.execute("DELETE FROM urls WHERE alias=?", (alias,))
-    connection.commit()
-    connection.close()
-    return {"message": f"URL for {alias} deleted successfully"}
+    if delete_alias(alias):
+        return {"message": f"URL for {alias} deleted successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Alias not found")
 
 @app.get("/list")
-async def list_urls():
-    connection = connect()
-    c = connection.cursor()
-    c.execute("SELECT * FROM urls")
-    rows = c.fetchall()
-    connection.close()
-    return rows
+async def list_urls_endpoint():
+    return list_urls()
 
 @app.get("/find/{alias}")
 async def find(alias: str):
@@ -89,10 +54,6 @@ async def find(alias: str):
         return RedirectResponse(url)
     else:
         raise HTTPException(status_code=404, detail="Alias not found")
-
-@app.get("/")
-def root():
-    return "url-shortener"
 
 @app.get("/logging-levels")
 def logging_levels():
