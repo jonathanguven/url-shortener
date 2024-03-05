@@ -47,6 +47,13 @@ async def find(alias: str):
     else:
         raise HTTPException(status_code=404, detail="Alias not found")
 
+@app.get("/logging")
+def logging_levels():
+    logging.error("error message")
+    logging.warning("warning message")
+    logging.info("info message")
+    logging.debug("debug message")
+
 logging.Formatter.converter = time.gmtime
 logging.basicConfig(
     format="%(asctime)s.%(msecs)03dZ %(levelname)s:%(name)s:%(message)s",
@@ -55,4 +62,5 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
+    logging.info(f"running on {args.host}, listening on port {args.port}")
     uvicorn.run("server:app", host=args.host, port=args.port, reload=True)
