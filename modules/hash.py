@@ -1,7 +1,7 @@
 import hashlib
 import time
 
-def generate_hash(url: str, id: int, alias: str = None):
+def generate_hash(url: str, alias: str = None):
   if alias:
     return alias
   else:

@@ -1,55 +1,66 @@
 import sqlite3
-from modules.hash import generate_hash
+from datetime import datetime, timedelta
 import logging
 
-def connect():
-    print("Connecting to database")
-    connection = sqlite3.connect('shortener.db')
-    return connection
 
-def alias_exists(alias: str):
-    connection = connect()
-    c = connection.cursor()
+# only create if not exists
+def create_table(sqlite: str) -> bool:
+    db = sqlite3.connect(sqlite)
+    c = db.cursor()
+
+    try:
+        c.execute('''CREATE TABLE IF NOT EXISTS urls
+                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  url TEXT NOT NULL,
+                  alias TEXT NOT NULL,
+                  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+        db.commit()
+        return True
+    except Exception:
+        return False
+
+def alias_exists(sqlite: str, alias: str):
+    db = sqlite3.connect(sqlite)
+    c = db.cursor()
     c.execute("SELECT COUNT(*) FROM urls WHERE alias=?", (alias,))
     count = c.fetchone()[0]
-    connection.close()
     return count > 0
 
-def get_url(alias: str):
-    connection = connect()
-    c = connection.cursor()
+def get_url(sqlite: str, alias: str):
+    db = sqlite3.connect(sqlite)
+    c = db.cursor()
     c.execute("SELECT url FROM urls WHERE alias=?", (alias,))
     row = c.fetchone()
-    connection.close()
     return row[0]
 
-def create_alias(url: str, alias: str = None):
-    if not alias:
-        alias = generate_hash(url)
-    if alias_exists(alias):
+def create_alias(sqlite: str, url: str, alias: str = None):
+    db = sqlite3.connect(sqlite)
+    c = db.cursor()
+    timestamp = datetime.now()
+    if alias_exists('shortener.db', alias):
         return None
-    else:
-        connection = connect()
-        c = connection.cursor()
-        c.execute("INSERT INTO urls (url, alias) VALUES (?, ?)", (url, alias))
-        connection.commit()
-        connection.close()
-        return alias
-
-def delete_alias(alias: str):
-    connection = connect()
-    c = connection.cursor()
-    try: 
-      c.execute("DELETE FROM urls WHERE alias=?", (alias,))
-      connection.commit()
-      return c.rowcount > 0
+    try:
+        c.execute("INSERT INTO urls (url, alias, timestamp) VALUES (?, ?, ?)", (url, alias, timestamp))
+        db.commit()
+        return timestamp
     except Exception:
-      return False
+        return None
 
-def list_urls():
-    connection = connect()
-    c = connection.cursor()
+def delete_alias(sqlite: str, alias: str):
+    db = sqlite3.connect(sqlite)
+    cursor = db.cursor()
+
+    try:
+        sql = "DELETE FROM urls WHERE alias = ?"
+        cursor.execute(sql, (alias, ))
+        db.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        return False
+
+def list_urls(sqlite: str):
+    db = sqlite3.connect(sqlite)
+    c = db.cursor()
     c.execute("SELECT * FROM urls")
     rows = c.fetchall()
-    connection.close()
     return rows
